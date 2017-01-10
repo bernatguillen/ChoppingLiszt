@@ -1,6 +1,7 @@
 *.db
 __pycache__/database.cpython-34.pyc
-./__pycache__/
+__pycache__
+.eggs
 dist
 *.sqlite
 *.egg-info
