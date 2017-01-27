@@ -5,3 +5,7 @@ __pycache__
 dist
 *.sqlite
 *.egg-info
+.tox
+*.pyc
+data/
+.cache/
