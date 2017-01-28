@@ -17,10 +17,11 @@ def tableresource(path):
             try:
                 c.execute("CREATE TABLE product(productname text PRIMARY KEY)")
                 c.execute("""CREATE TABLE brand(productname text, brand text,
-                          quantityperitem, totalweightperitem,
+                          quantityperitem, totalweightperitem, hasvarieties,
                           CONSTRAINT productbrand UNIQUE (productname,brand))""")  # noqa
-                c.execute("""CREATE TABLE item(productname text,idbrand text,
-                          datebought, useby)""")
+                c.execute("""CREATE TABLE item(Id INTEGER PRIMARY KEY,
+                          productname text,brand text,
+                          datebought, useby, variety, used, stored)""")
             except sqlite3.OperationalError:
                 print("Opening table at path, tables already exist")
 
@@ -31,17 +32,20 @@ def tableresource(path):
 
         def add_brand(self, brandict):
             c = self.conn.cursor()
-            c.execute("INSERT OR IGNORE INTO brand VALUES(?,?,?,?)",
+            c.execute("INSERT OR IGNORE INTO brand VALUES(?,?,?,?,?)",
                       (brandict["productname"], brandict["brand"],
                        brandict["quantityperitem"],
-                       brandict["totalweightperitem"]))
+                       brandict["totalweightperitem"],
+                       brandict["hasvarieties"]))
             self.add_product(brandict)
 
         def add_item(self, itemdict):
             c = self.conn.cursor()
-            c.execute("INSERT OR IGNORE INTO item VALUES(?,?,?,?)",
-                      (itemdict["productname"], itemdict["brand"],
-                       itemdict["datebought"], itemdict["useby"]))
+            c.execute('SELECT * from item')
+            names = list(map(lambda x: x[0], c.description))
+            for name in names:
+                c.execute("""INSERT OR IGNORE INTO item(?)
+                      VALUES(?)""", name, itemdict[name])
             self.add_brand(itemdict)
 
         def user_input(self, inputdict):
