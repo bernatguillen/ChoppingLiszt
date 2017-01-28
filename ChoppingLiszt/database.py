@@ -12,18 +12,22 @@ def tableresource(path):
         def __init__(self, name):
             self.name = name
             self.conn = sqlite3.connect(name)
-            self.last_brandid = 0
             c = self.conn.cursor()
             try:
                 c.execute("CREATE TABLE product(productname text PRIMARY KEY)")
                 c.execute("""CREATE TABLE brand(productname text, brand text,
-                          quantityperitem, totalweightperitem, hasvarieties,
+                          quantityperitem, weightperitem, hasvarieties,
                           CONSTRAINT productbrand UNIQUE (productname,brand))""")  # noqa
                 c.execute("""CREATE TABLE item(Id INTEGER PRIMARY KEY,
                           productname text,brand text,
                           datebought, useby, variety, used, stored)""")
             except sqlite3.OperationalError:
                 print("Opening table at path, tables already exist")
+
+        def get_names(self, table):
+            c = self.conn.cursor()
+            c.execute('SELECT * from {}'.format(table))
+            return list(map(lambda x: x[0], c.description))
 
         def add_product(self, productdict):
             c = self.conn.cursor()
@@ -32,20 +36,45 @@ def tableresource(path):
 
         def add_brand(self, brandict):
             c = self.conn.cursor()
-            c.execute("INSERT OR IGNORE INTO brand VALUES(?,?,?,?,?)",
-                      (brandict["productname"], brandict["brand"],
-                       brandict["quantityperitem"],
-                       brandict["totalweightperitem"],
-                       brandict["hasvarieties"]))
+            names = self.get_names('brand')[2:]
+            for name in names:
+                if name in brandict:
+                    try:
+                        c.execute("""INSERT INTO
+                                  brand(productname, brand, {})
+                                  VALUES(?,?,?)""".format(name),
+                                  (brandict["productname"],
+                                   brandict["brand"],
+                                   brandict[name]))
+                    except sqlite3.IntegrityError:
+                        c.execute("""UPDATE brand
+                                  SET {} = ?
+                                  WHERE productname = ? AND
+                                  brand = ?""".format(name),
+                                  (brandict[name],
+                                   brandict["productname"],
+                                   brandict["brand"]))
             self.add_product(brandict)
 
         def add_item(self, itemdict):
             c = self.conn.cursor()
-            c.execute('SELECT * from item')
-            names = list(map(lambda x: x[0], c.description))
+            names = self.get_names('item')[1:]
+            c.execute('SELECT max(Id) FROM item')
+            maxid = c.fetchone()[0]
+            if maxid is None:
+                maxid = 0
+            else:
+                maxid += 1
             for name in names:
-                c.execute("""INSERT OR IGNORE INTO item(?)
-                      VALUES(?)""", name, itemdict[name])
+                if name in itemdict:
+                    try:
+                        c.execute("""INSERT INTO item(Id,{})
+                                  VALUES(?,?)""".format(name),
+                                  (maxid, itemdict[name]))
+                    except sqlite3.IntegrityError:
+                        c.execute("""UPDATE item
+                                  SET {} = ? WHERE Id = ?""".format(name),
+                                  (itemdict[name], maxid))
             self.add_brand(itemdict)
 
         def user_input(self, inputdict):
